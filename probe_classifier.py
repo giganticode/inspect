@@ -184,7 +184,7 @@ if __name__ == "__main__":
         print(f'\n****\n{task_code}\n****\n')
         for label_count in label_counts:
             for nhid in nhids:
-                head=('MLP' if nhid !=0 else 'LIN')       
+                head=('MLP' if nhid !=0 else 'LIN')
 
                 for model_kind in list(model_kinds.keys()):
                     eval_layers_count = model_kinds.get(model_kind, 1)

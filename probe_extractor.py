@@ -158,11 +158,11 @@ def save_features(model, tokenizer, device):
 
 if __name__ == '__main__':
 
-    task_codes    = ['KTX', 'IDN', 'LEN', 'TYP', 'REA', 'JBL', 'SRI', 'SRK', 'SCK', 'OCU', 'VCU', 'CSC', 'MXN', 'CPX', 'NPT']
+    task_codes    = ['KTX', 'IDN', 'LEN', 'TYP', 'REA', 'JBL', 'SRI', 'SRK', 'SCK', 'OCU', 'VCU', 'CSC', 'MXN', 'CPX', 'NPT'] # TODO: put tasks in tasks.config
     shuffle_kinds = ['ORIG']
     label_counts  = ['100', '1k', '10k']
 
-    model_checkpoints = {
+    model_checkpoints = { # TODO: put models in models.config OR make a models class
         "BERT":          "bert-base-uncased", 
         "CodeBERT":      "microsoft/codebert-base",
         "CodeBERTa":     "huggingface/CodeBERTa-small-v1", 
