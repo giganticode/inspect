@@ -8,7 +8,7 @@ import collections
 from tqdm import tqdm
 from pathlib import Path
 from torch.utils.data import TensorDataset, DataLoader, SequentialSampler
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM, AutoConfig
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM,TFAutoModelForCausalLM, AutoConfig, AutoModel
 from transformers import BertTokenizer, BertModel, BertConfig
 from transformers import BartTokenizer, AutoModelForSeq2SeqLM, BartConfig
 from transformers import RobertaTokenizer, RobertaForSequenceClassification, RobertaConfig
@@ -40,19 +40,20 @@ def read_examples(text_file):
             text = line.strip().split('\t')[-1]
             examples.append(InputExample(text=text, unique_id=unique_id))
             unique_id += 1
-    return examples  
+    return examples
 
 def convert_examples_to_features(examples, seq_length, tokenizer):
     features = []
     for (ex_index, example) in enumerate(examples):
         cand_tokens = tokenizer.tokenize(example.text)
+        #print(cand_tokens)
         if len(cand_tokens) > seq_length - 2: 
             ## Account for [CLS] and [SEP] with "- 2"
             cand_tokens = cand_tokens[0:(seq_length - 2)] 
 
         tokens = []
         input_type_ids = []
-        
+
         tokens.append("[CLS]")
         input_type_ids.append(0)
         for token in cand_tokens:
@@ -70,9 +71,9 @@ def convert_examples_to_features(examples, seq_length, tokenizer):
             input_mask.append(0)
             input_type_ids.append(0)
 
-        assert len(input_ids) == seq_length
-        assert len(input_mask) == seq_length
-        assert len(input_type_ids) == seq_length
+        #assert len(input_ids) == seq_length
+        #assert len(input_mask) == seq_length
+        #assert len(input_type_ids) == seq_length
         features.append(InputFeatures(tokens=tokens, unique_id=example.unique_id, input_ids=input_ids, input_mask=input_mask, input_type_ids=input_type_ids))
     return features
 
@@ -112,12 +113,12 @@ def save_features(model, tokenizer, device):
                 if "plbart" in model.__dict__["config"]._name_or_path:
                     all_outputs = model(input_ids=input_ids)#, token_type_ids=None, attention_mask=input_mask) 
                     enc_layers  = all_outputs.encoder_hidden_states 
-                elif "codet5" in model.__dict__["config"]._name_or_path:
+                elif "codet5" in model.__dict__["config"]._name_or_path or "codereviewer" in model.__dict__["config"]._name_or_path:
                     all_outputs = model(input_ids=input_ids, decoder_input_ids=input_ids)#, token_type_ids=None, attention_mask=input_mask) 
-                    enc_layers  = all_outputs.encoder_hidden_states                     
+                    enc_layers  = all_outputs.encoder_hidden_states 
                 else:
                     all_outputs = model(input_ids=input_ids, token_type_ids=None, attention_mask=input_mask) 
-                    enc_layers  = all_outputs.hidden_states          
+                    enc_layers  = all_outputs.hidden_states 
                 #print("***************************************************")
                 #print(model_checkpoint, " => Num layers:", len(enc_layers))
                 #print("***************************************************")
@@ -167,23 +168,24 @@ if __name__ == '__main__':
         "CodeBERTa":     "huggingface/CodeBERTa-small-v1", 
         "GraphCodeBERT": "microsoft/graphcodebert-base",
         "CodeT5":        "Salesforce/codet5-base",
-        "JavaBERT-KIEL": "CAUKiel/JavaBERT",
+        
         "PLBART-mtjava": "uclanlp/plbart-multi_task-java",
-        "CodeReviewer":  "microsoft/codereviewer",
-        "UnixCoder-unimodal": "microsoft/codereviewer",
+        "UnixCoder-unimodal":  "microsoft/unixcoder-base-unimodal",
+        "JavaBERT-KIEL":  "CAUKiel/JavaBERT",
+        "CodeReviewer":   "microsoft/codereviewer",
     }
 
     model_max_seq_lengths = {
         "BERT":           512,
-        "CodeBERT":       256, 
+        "CodeBERT":       512,
         "CodeBERTa":      512,
         "GraphCodeBERT":  512,
         "CodeT5":         512,
-        "JavaBERT-KIEL":  512,
-        "PLBART-mtjava":  1024,
-        "CodeReviewer":   512,    
-        "UnixCoder-unimodal": 1024,
 
+        "PLBART-mtjava":  1024,
+        "UnixCoder-unimodal": 1024,
+        "JavaBERT-KIEL":  512,
+        "CodeReviewer":   512,
     }
 
 
@@ -207,47 +209,91 @@ if __name__ == '__main__':
                     modelname = model_checkpoints.get(model_checkpoint, None)
                     model_max_seq_length = model_max_seq_lengths.get(model_checkpoint, None)
 
+                    print(modelname)
+
                     device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                    batchsize = 1 #8 for 512 tokens 4 for 1024 tokens
+                    batchsize = 8 #8 for 512 tokens 4 for 1024 tokens # TODO: get batch size from args
+                    print("Using device: ", device)
+
+
+                    #Additional Info when using cuda
+                    if device.type == 'cuda':
+                        cur_device = torch.cuda.current_device()
+                        print(torch.cuda.get_device_name(cur_device))
+                        print('Memory Usage:')
+                        print('Allocated:', round(torch.cuda.memory_allocated(cur_device)/1024**3,1), 'GB')
+                        print('Cached:   ', round(torch.cuda.memory_reserved(cur_device)/1024**3,1), 'GB')
+
 
                     if model_checkpoint == "BERT":
 
                         config    = BertConfig.from_pretrained(modelname, output_hidden_states=True)
                         tokenizer = BertTokenizer.from_pretrained(modelname, do_lower_case=True, cache_dir="~/tmp")
                         model     = BertModel.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
 
-                    elif model_checkpoint in ["CodeBERT", "CodeBERTa", "GraphCodeBERT"]:
-                        
+                    elif model_checkpoint in ["CodeBERT", "CodeBERTa", "GraphCodeBERT", "UnixCoder", "UnixCoder-unimodal"]:
+
                         config    = RobertaConfig.from_pretrained(modelname, output_hidden_states=True)
                         tokenizer = RobertaTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
                         model     = RobertaForSequenceClassification.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
 
-                    elif model_checkpoint in ["PLBART-mtjava", "PLBART-large", "CodeT5"]:
-
-                        config    = AutoConfig.from_pretrained(modelname, output_hidden_states=True)
-                        tokenizer = AutoTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
-                        model     = AutoModelForSeq2SeqLM.from_pretrained(modelname, config=config, cache_dir="~/tmp") 
-
-                    elif model_checkpoint in ["JavaBERT-mini"]:
+                    elif model_checkpoint in ["PLBART-mtjava", "PLBART-base", "PLBART-large", "CodeT5", "CodeT5-large", "CodeReviewer"]:
 
                         config    = AutoConfig.from_pretrained(modelname, output_hidden_states=True)
                         tokenizer = AutoTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
-                        model     = AutoModelForSequenceClassification.from_pretrained(modelname, config=config, cache_dir="~/tmp")   
+                        model     = AutoModelForSeq2SeqLM.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
 
-                    elif model_checkpoint in ["GPT-J-6B"]:
+                    elif model_checkpoint in ["JavaBERT-mini", "JavaBERT-KIEL"]:
 
                         config    = AutoConfig.from_pretrained(modelname, output_hidden_states=True)
                         tokenizer = AutoTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
-                        model     = AutoModelForCausalLM.from_pretrained(modelname, config=config, cache_dir="~/tmp")                                                
+                        model     = AutoModelForSequenceClassification.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
 
-                    print("-----")
-                    print("Vocabulary  Size:\t", model.config.vocab_size)
+                    elif model_checkpoint in ["GPT-J-6B", "CodeGPT2"]:
+
+                        config    = AutoConfig.from_pretrained(modelname, output_hidden_states=True)
+                        tokenizer = AutoTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
+                        model     = AutoModelForCausalLM.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
+
+
+                    elif model_checkpoint in ["CodeGen-350M", "GPT-NEOX", "CodeParrot-multi"]:
+
+                        config    = AutoConfig.from_pretrained(modelname, output_hidden_states=True)
+                        tokenizer = AutoTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
+                        model     = AutoModelForCausalLM.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
+
+                    elif model_checkpoint in ["BLOOM"]:
+
+                        config    = AutoConfig.from_pretrained(modelname, output_hidden_states=True)
+                        tokenizer = AutoTokenizer.from_pretrained(modelname, cache_dir="~/tmp")
+                        model     = AutoModel.from_pretrained(modelname, config=config, cache_dir="~/tmp")
+                        model.resize_token_embeddings(len(tokenizer))
+
+
+                    print("#" * 20)
+                    print(modelname)
+                    print("#" * 20)
+                    print("Model Size:", round(float(model.num_parameters() / 1000000), 2), "Million" )
+                    print("=" * 20)
+                    print("Num. Hidden Layers:\t", model.config.num_hidden_layers)
+                    print("Num. Attention Heads:\t", model.config.num_attention_heads)
+                    print("Embedding Hiddden Size:\t", model.config.hidden_size)
+                    print("=" * 20)
+                    print("Vocabulary Size:\t", model.config.vocab_size)
                     print("Tokenizer Length:\t", len(tokenizer))
-                    print("-----")
+                    print("=" * 20)
+
                     model.to(device)
                     model.eval()
                     save_features(model, tokenizer, device)
                     print("********")
+                    print("\n" * 2)
 
 
 
