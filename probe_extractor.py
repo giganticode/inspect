@@ -34,7 +34,8 @@ def read_examples(text_file):
     with open(text_file, "r", encoding='utf-8') as reader:
         while True:
             line = reader.readline()
-            if not line: break
+            if not line: 
+                break
 
             text = line.strip().split('\t')[-1]
             examples.append(InputExample(text=text, unique_id=unique_id))
@@ -156,9 +157,9 @@ def save_features(model, tokenizer, device):
 
 if __name__ == '__main__':
 
-    task_codes    = ['CPT'] #['AST', 'CPX', 'CSC', 'IDF', 'IDT', 'JBL', 'JFT', 'JMB', 'LEN', 'MXN', 'NML', 'NMS', 'NPT', 'OCT', 'OCU', 'REA', 'SCK', 'SRI', 'SRK', 'TAN', 'TYP', 'VCT', 'VCU']
+    task_codes    = ['KTX', 'IDN', 'LEN', 'TYP', 'REA', 'JBL', 'SRI', 'SRK', 'SCK', 'OCU', 'VCU', 'CSC', 'MXN', 'CPX', 'NPT']
     shuffle_kinds = ['ORIG']
-    label_counts  = ['200', '2k', '20k']
+    label_counts  = ['100', '1k', '10k']
 
     model_checkpoints = {
         "BERT":          "bert-base-uncased", 
@@ -166,10 +167,10 @@ if __name__ == '__main__':
         "CodeBERTa":     "huggingface/CodeBERTa-small-v1", 
         "GraphCodeBERT": "microsoft/graphcodebert-base",
         "CodeT5":        "Salesforce/codet5-base",
-        "JavaBERT-mini": "anjandash/JavaBERT-mini",
+        "JavaBERT-KIEL": "CAUKiel/JavaBERT",
         "PLBART-mtjava": "uclanlp/plbart-multi_task-java",
-        "PLBART-large":  "uclanlp/plbart-large",
-        #"GPT-J-6B":      "EleutherAI/gpt-j-6B",
+        "CodeReviewer":  "microsoft/codereviewer",
+        "UnixCoder-unimodal": "microsoft/codereviewer",
     }
 
     model_max_seq_lengths = {
@@ -178,10 +179,10 @@ if __name__ == '__main__':
         "CodeBERTa":      512,
         "GraphCodeBERT":  512,
         "CodeT5":         512,
-        "JavaBERT-mini":  512,
+        "JavaBERT-KIEL":  512,
         "PLBART-mtjava":  1024,
-        "PLBART-large":   1024,    
-        #"GPT-J-6B":       2048,
+        "CodeReviewer":   512,    
+        "UnixCoder-unimodal": 1024,
 
     }
 
