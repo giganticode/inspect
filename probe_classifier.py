@@ -87,7 +87,7 @@ def load_data():
     valid_y = np.array(valid_y)
     test_y  = np.array(test_y)
 
-    #print('loaded %d/%d/%d samples; %d labels;'%(train_X.shape[0], valid_X.shape[0], test_X.shape[0], len(cat2id)))
+    # print('loaded %d/%d/%d samples; %d labels;'%(train_X.shape[0], valid_X.shape[0], test_X.shape[0], len(cat2id)))
     return train_X, train_y, valid_X, valid_y, test_X, test_y, feat_dim, len(cat2id), cat2id, id2cat
 
 def classify_and_predict(train_X, train_y, dev_X, dev_y, test_X, test_y, feat_dim, num_classes):
@@ -97,7 +97,7 @@ def classify_and_predict(train_X, train_y, dev_X, dev_y, test_X, test_y, feat_di
 
     # hyper-parameter optimization
     for reg in regs:
-        clf = MLP(classifier_config, inputdim=feat_dim, nclasses=num_classes, l2reg=reg, seed=seed, cudaEfficient=True)
+        clf = MLP(params=classifier_config, inputdim=feat_dim, nclasses=num_classes, l2reg=reg, seed=seed, cudaEfficient=True)
         clf.fit(train_X, train_y, validation_data=(dev_X, dev_y))
         scores.append(round(100*clf.score(dev_X, dev_y), 2))
         props.append([reg])
@@ -106,7 +106,7 @@ def classify_and_predict(train_X, train_y, dev_X, dev_y, test_X, test_y, feat_di
 
     # training
     classifier_config = {'nhid': nhid, 'optim': 'adam', 'batch_size': 1, 'tenacity': 5, 'epoch_size': 20, 'dropout': dropout}
-    clf = MLP(classifier_config, inputdim=feat_dim, nclasses=num_classes, l2reg=opt_prop[0], seed=seed, cudaEfficient=True)
+    clf = MLP(params=classifier_config, inputdim=feat_dim, nclasses=num_classes, l2reg=opt_prop[0], seed=seed, cudaEfficient=True)
     clf.fit(train_X, train_y, validation_data=(dev_X, dev_y))
 
     # testing
@@ -163,23 +163,24 @@ if __name__ == "__main__":
 
     shuffle_kinds = ['ORIG']
     model_kinds   = {
-                    'BERT':          13, 
-                    'CodeBERT':      13,
-                    'CodeBERTa':      7,
-                    'GraphCodeBERT': 13,
+                    "BERT":          13, 
+                    "CodeBERT":      13,
+                    "CodeBERTa":      7,
+                    "GraphCodeBERT": 13,
+                    "CodeT5":        13,
 
-                    'CodeT5':        13,
-                    'JavaBERT-mini': 13,
                     "PLBART-mtjava":  7,
-                    "PLBART-large":  13,                       
+                    "UnixCoder-unimodal": 13,
+                    "JavaBERT-KIEL": 13,
+                    "CodeReviewer":   13
                     }
 
-    label_counts  = ['200', '2k', '20k']
-    task_codes    = ['CPT'] #['AST', 'CPX', 'CSC', 'IDF', 'IDT', 'JBL', 'JFT', 'JMB', 'LEN', 'MXN', 'NML', 'NMS', 'NPT', 'OCT', 'OCU', 'REA', 'SCK', 'SRI', 'SRK', 'TAN', 'TYP', 'VCT', 'VCU']
+    label_counts  = ['100', '1k', '10k']
+    task_codes    = ['KTX', 'IDN', 'LEN', 'TYP', 'REA', 'JBL', 'SRI', 'SRK', 'SCK', 'OCU', 'VCU', 'CSC', 'MXN', 'CPX', 'NPT'] 
     nhids         = [0] # number of hidden layers
 
     for task_code in task_codes:
-        
+
         print(f'\n****\n{task_code}\n****\n')
         for label_count in label_counts:
             for nhid in nhids:
@@ -196,11 +197,10 @@ if __name__ == "__main__":
 
                             labels_file = (sys.path[0] + '/data/datasets_'+ task_code +'/'+ task_code +'_'+ shuffle_kind +'_'+ label_count +'.txt')
                             feats_file  = (sys.path[0] + '/data/datasets_'+ task_code +'/'+ shuffle_kind +'/'+ model_kind +'_features_'+ label_count +'.json')
-                            dropout     = 0.0
-                            seed        = 42
+                            dropout     = 0.0 # TODO: get dropout from args
+                            seed        = 42  # TODO: get seed from args
 
                             train_X, train_y, dev_X, dev_y, test_X, test_y, feat_dim, num_classes, cat2id, id2cat = load_data()
                             test_acc = classify_and_predict(train_X, train_y, dev_X, dev_y, test_X, test_y, feat_dim, num_classes)
-            ## 
+            ##
             print('\n\n')
-            
