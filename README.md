@@ -67,6 +67,10 @@ The final task accuracies of each model (layer by layer) will be saved in *resul
 ![Invalid Type Prediction Results](https://i.postimg.cc/kGYBqj7Q/Invalid-Type-Prediction-Results.png)
 
 
+## Overall Results via Heatmaps
+
+![Heatmaps for all models and tasks](https://github.com/giganticode/inspect/blob/master/HEATMAPS_NN.pdf)
+
 
 ---
 
